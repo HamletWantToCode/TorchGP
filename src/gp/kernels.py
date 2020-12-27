@@ -2,20 +2,9 @@ import torch
 import math
 import torch.nn as nn
 from torch.nn.parameter import Parameter
-from torch.autograd import grad
+from .utils import *
 
 # TODO: Add SE kernel
-
-def pairwise(X1: torch.tensor, X2: torch.tensor):
-    """
-    X1: n_samples * ... * n_feature
-    X2:
-    """
-    _X1 = X1[:, None]
-    _X2 = X2[None, :]
-    pw_diff = _X1 - _X2
-    pw_distance = torch.sqrt(torch.sum(torch.pow(pw_diff, 2), dim=-1))
-    return pw_distance
 
 class BaseKernel(nn.Module):
     def __init__(self, overall_scaling: torch.tensor, character_length: torch.tensor):
@@ -26,46 +15,63 @@ class BaseKernel(nn.Module):
         super().__init__()
         self.c = Parameter(overall_scaling)
         self.l = Parameter(character_length) 
+
+    @staticmethod
+    def _distance(X1: torch.tensor, X2: torch.tensor=None):
+        if X2 is not None:
+            return X1[:,None]-X2
+        else:
+            return X1[:,None]-X1
     
+    @staticmethod
+    def _r(X1: torch.tensor, X2: torch.tensor=None):
+        if X2 is not None:
+            return pairwise2(X1, X2)
+        else:
+            return pairwise1(X1)
+
+    def _streched(self, X1: torch.tensor, X2: torch.tensor=None):
+        if X2 is not None:
+            return X1/self.l, X2/self.l
+        else:
+            return X1/self.l, None
+
 
 class Matern52(BaseKernel):
     def __init__(self, overall_scaling: torch.tensor, character_length: torch.tensor):
         super().__init__(overall_scaling, character_length)
 
-    def forward(self, X1, X2):
-        X1_l = X1 / self.l
-        X2_l = X2 / self.l
-        r = pairwise(X1_l, X2_l)
-        
+    def forward(self, X1, X2: torch.tensor=None):
+        X1_l, X2_l = self._streched(X1, X2)
+        r = self._r(X1_l, X2_l)
         sqrt_5 = math.sqrt(5)
         return torch.pow(self.c, 2) * (1.0 + sqrt_5*r + (5.0/3.0)*torch.pow(r, 2)) * torch.exp(-sqrt_5*r)
+
 
 class Deriv1Matern52(BaseKernel):
     def __init__(self, overall_scaling: torch.tensor, character_length: torch.tensor):
         super().__init__(overall_scaling, character_length)
     
-    def forward(self, X1, X2):
-        X1_l = X1 / self.l
-        X2_l = X2 / self.l
-        DX1X2 = X1[:, None] - X2[None, :]
-        r = pairwise(X1_l, X2_l)
-
+    def forward(self, X1, X2: torch.tensor=None):
+        DX1X2 = self._distance(X1, X2)
+        X1_l, X2_l = self._streched(X1, X2)
+        r = self._r(X1_l, X2_l)
         sqrt_5 = math.sqrt(5)
         fr = torch.pow(self.c, 2) * (-5.0/3.0)*torch.exp(-sqrt_5*r)*(1.0+sqrt_5*r)
         dx1x2_div_l2 = DX1X2 / torch.pow(self.l, 2)
         return torch.einsum("ij,ija->iaj", fr, dx1x2_div_l2)
         # TODO: reshape the 3-tensor into a matrix
-        # DONE: Don't reshape the tensor, use `einsum` in post process
+        # DONE: Don't reshape the tensor, reshape it in later process
+
 
 class Deriv2Matern52(BaseKernel):
     def __init__(self, overall_scaling: torch.tensor, character_length: torch.tensor):
         super().__init__(overall_scaling, character_length)
 
-    def forward(self, X1, X2):
-        DX1X2 = X1[:, None] - X2[None, :]  # n_sample * n_sample * n_feature
-        X1_l = X1 / self.l
-        X2_l = X2 / self.l
-        r = pairwise(X1_l, X2_l)     # n_sample * n_sample
+    def forward(self, X1, X2: torch.tensor=None):
+        DX1X2 = self._distance(X1, X2) 
+        X1_l, X2_l = self._streched(X1, X2)
+        r = self._r(X1_l, X2_l)
         sqrt_5 = math.sqrt(5)
 
         fr = (5.0/3.0)*torch.exp(-sqrt_5*r)  # n_sample * n_sample

@@ -1,12 +1,11 @@
 import torch
-from torch.autograd import grad
-from gp import pairwise, Matern52, Deriv1Matern52, Deriv2Matern52
+from torch.autograd.gradcheck import get_numerical_jacobian
+from gp import Matern52, Deriv1Matern52, Deriv2Matern52
 import unittest
 
 torch.manual_seed(12345)
 
-def test_basic_property(kernel, X1):
-    K = kernel(X1, X1)
+def test_basic_property(K: torch.tensor):
     is_symmetric = torch.allclose(K, K.T)
     res = torch.symeig(K)
     eigvs = res.eigenvalues
@@ -14,41 +13,52 @@ def test_basic_property(kernel, X1):
     return is_symmetric and is_pd
 
 def test_gradient(kernel, d1kernel, X1, X2):
+    """
+    X1: 1 * n_features
+    X2: n_samples * n_features
+    """
+    n_samples, n_features = X2.shape
     X1.requires_grad_()
-    K = kernel(X1, X2)
-    ad_dldX1, = grad(K, X1, torch.ones_like(K))
-    
+    # test gradient for single input
+    fd_J = get_numerical_jacobian(lambda x: kernel(x), X1, eps=1e-5)
     with torch.no_grad():
-        dK1 = d1kernel(X1, X2)
-        my_dldX1 = torch.einsum("ij,iaj->ia", torch.ones_like(K), dK1)
-    
-    isequal = torch.allclose(ad_dldX1, my_dldX1)
+        my_J = d1kernel(X1)
+        my_J = my_J.reshape((n_features, 1))
+    isequal = torch.allclose(fd_J, my_J)
+
+    # test gradient for two inputs
+    fd_J1 = get_numerical_jacobian(lambda x: kernel(x, X2), X1, eps=1e-5)
+    with torch.no_grad():
+        my_J1 = d1kernel(X1, X2)
+        my_J1 = my_J1.reshape((n_features, n_samples))
+    isequal = isequal and torch.allclose(fd_J1, my_J1)
     return isequal
 
 def test_hessian(d1kernel, d2kernel, X1, X2):
+    """
+    X1: 1 * n_features
+    X2: 1 * n_features
+    """
+    _, n_features = X1.shape
     X2.requires_grad_()
-    dK1 = d1kernel(X1, X2)
-    ad_d2l_dX1dX2, = grad(dK1, X2, torch.ones_like(dK1))
-
+    # test hessian for single input
+    # BUG: why manurally computed hessian is not zero on it's diagonal?
+    fd_H = get_numerical_jacobian(lambda x: d1kernel(x), X2, eps=1e-5)
     with torch.no_grad():
-        d2K = d2kernel(X1, X2)
-        my_d2l_dX1dX2 = torch.einsum("iaj, iajb->jb", torch.ones_like(dK1), d2K)
-    
-    isequal = torch.allclose(ad_d2l_dX1dX2, my_d2l_dX1dX2)
+        my_H = d2kernel(X2)
+        my_H = my_H.reshape((n_features, n_features))
+    isequal = torch.allclose(fd_H, my_H)
+
+    # test hessian for two inputs
+    fd_H1 = get_numerical_jacobian(lambda x: d1kernel(X1, x), X2, eps=1e-5)
+    with torch.no_grad():
+        my_H1 = d2kernel(X1, X2)
+        my_H1 = my_H1.reshape((n_features, n_features))
+    isequal = isequal and torch.allclose(fd_H1, my_H1)
     return isequal
 
 
 class TestKernel(unittest.TestCase):
-    def test_pairwise(self):
-        x1 = torch.randn(1, 3)
-        x2 = torch.randn(1, 3)
-        d_x1x2 = pairwise(x1, x2)[0, 0]
-        d_explicit_x1x2 = torch.sqrt(torch.sum(torch.pow(x1-x2, 2)))
-        self.assertTrue(torch.allclose(d_x1x2, d_explicit_x1x2))
-
-        d1_x1x1 = pairwise(x1, x1)[0, 0]
-        self.assertTrue(torch.allclose(d1_x1x1, torch.zeros(1)))
-
     def test_basic(self):
         """
         1. shape of kernel matrix
@@ -59,30 +69,34 @@ class TestKernel(unittest.TestCase):
         C = torch.tensor([3.0])
 
         matern = Matern52(C, l)
-        self.assertTrue(test_basic_property(matern, X1))
+        K1 = matern(X1)
+        self.assertTrue(test_basic_property(K1))
 
         # since the return is a 4-tensor
         d2matern = Deriv2Matern52(C, l)
-        d2K = d2matern(X1, X1)
-        d2K = d2K.reshape(30, 30)
-        self.assertTrue(torch.allclose(d2K, d2K.T))
-        res = torch.symeig(d2K)
-        eigvs = res.eigenvalues
-        self.assertTrue(torch.all(eigvs > 0.0))
+        K2 = d2matern(X1)
+        K2 = K2.reshape((30, 30))
+        self.assertTrue(test_basic_property(K2))
 
-    def test_grad_hessian(self):
-        X1 = torch.randn(4, 5)
-        X2 = torch.randn(3, 5)
+        # check consistency
+        K3 = matern(X1, X1)
+        self.assertTrue(torch.allclose(K1, K3))
+        K4 = d2matern(X1, X1)
+        K4 = K4.reshape((30, 30))
+        self.assertTrue(torch.allclose(K2, K4))
+
+    def test_deriv_kernel(self):
+        X1 = torch.randn(1, 5).double()
+        X2 = torch.randn(3, 5).double()
+        X3 = torch.randn(1, 5).double()
         l = torch.rand(5) * 10.0
         C = torch.tensor([2.0])
 
-        matern = Matern52(C, l)
-        dmatern = Deriv1Matern52(C, l)
-        d2matern = Deriv2Matern52(C, l)
+        matern = Matern52(C, l).double()
+        dmatern = Deriv1Matern52(C, l).double()
+        d2matern = Deriv2Matern52(C, l).double()
         self.assertTrue(test_gradient(matern, dmatern, X1, X2))
-        self.assertTrue(test_hessian(dmatern, d2matern, X1, X2))
-
-
+        self.assertTrue(test_hessian(dmatern, d2matern, X1, X3))
 
 
 
