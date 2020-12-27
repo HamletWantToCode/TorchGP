@@ -5,17 +5,13 @@ import unittest
 
 torch.manual_seed(12345)
 
-def test_basic_property(kernel, X1, X2):
+def test_basic_property(kernel, X1):
     K = kernel(X1, X1)
     is_symmetric = torch.allclose(K, K.T)
     res = torch.symeig(K)
     eigvs = res.eigenvalues
     is_pd = torch.all(eigvs > 0.0)
-
-    n1, n2 = X1.shape[0], X2.shape[0]
-    K1 = kernel(X1, X2)
-    check_shape = (K1.shape == (n1, n2))
-    return is_symmetric and is_pd and check_shape
+    return is_symmetric and is_pd
 
 def test_gradient(kernel, d1kernel, X1, X2):
     X1.requires_grad_()
@@ -59,20 +55,25 @@ class TestKernel(unittest.TestCase):
         2. kernel PSD, symmetric
         """
         X1 = torch.randn(10, 3)
-        X2 = torch.randn(4, 3)
-        l = torch.rand(3)
+        l = torch.rand(3) * 10.0
         C = torch.tensor([3.0])
 
         matern = Matern52(C, l)
-        self.assertTrue(test_basic_property(matern, X1, X2))
+        self.assertTrue(test_basic_property(matern, X1))
 
+        # since the return is a 4-tensor
         d2matern = Deriv2Matern52(C, l)
-        self.assertTrue(test_basic_property(d2matern, X1, X2))
+        d2K = d2matern(X1, X1)
+        d2K = d2K.reshape(30, 30)
+        self.assertTrue(torch.allclose(d2K, d2K.T))
+        res = torch.symeig(d2K)
+        eigvs = res.eigenvalues
+        self.assertTrue(torch.all(eigvs > 0.0))
 
     def test_grad_hessian(self):
         X1 = torch.randn(4, 5)
         X2 = torch.randn(3, 5)
-        l = torch.rand(5)
+        l = torch.rand(5) * 10.0
         C = torch.tensor([2.0])
 
         matern = Matern52(C, l)

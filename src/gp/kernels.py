@@ -4,6 +4,8 @@ import torch.nn as nn
 from torch.nn.parameter import Parameter
 from torch.autograd import grad
 
+# TODO: Add SE kernel
+
 def pairwise(X1: torch.tensor, X2: torch.tensor):
     """
     X1: n_samples * ... * n_feature
@@ -53,6 +55,7 @@ class Deriv1Matern52(BaseKernel):
         dx1x2_div_l2 = DX1X2 / torch.pow(self.l, 2)
         return torch.einsum("ij,ija->iaj", fr, dx1x2_div_l2)
         # TODO: reshape the 3-tensor into a matrix
+        # DONE: Don't reshape the tensor, use `einsum` in post process
 
 class Deriv2Matern52(BaseKernel):
     def __init__(self, overall_scaling: torch.tensor, character_length: torch.tensor):
@@ -71,6 +74,7 @@ class Deriv2Matern52(BaseKernel):
         k = torch.einsum("ij,iajb->iajb", fr, part1 - 5.0*distance_div_l2)
         return torch.pow(self.c, 2) * k
         # TODO: reshape the 4-tensor into a matrix
+        # DONE: Same as above
 
 
 
