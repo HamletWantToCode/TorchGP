@@ -16,8 +16,8 @@ def basic_test(gaussprocess, X1, y1, X2):
     sample_shape_check = (sample.shape==(1, n1*out_d))
     logging.debug("basic test: sample shape check={}".format(sample_shape_check))
 
-    predict = gaussprocess.predict(X2, X1, y1)
-    type_check = type_check and isinstance(predict[0], torch.distributions.Normal)
+    p_y2 = gaussprocess.predict(X2, X1, y1)
+    type_check = type_check and isinstance(p_y2[0], torch.distributions.Normal)
     logging.debug("basic test: predict typecheck={}".format(type_check))
 
     len_check = (len(predict)==n2*out_d)

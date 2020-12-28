@@ -3,6 +3,9 @@ import torch.nn as nn
 from torch.distributions import Normal, MultivariateNormal
 from .kernels import BaseKernel
 from .means import BaseMean
+import logging
+
+# logging.basicConfig(level=logging.DEBUG)
 
 class GaussianProcess(nn.Module):
     def __init__(self, mean: BaseMean, kernel: BaseKernel, regularizer: torch.tensor):
@@ -38,7 +41,7 @@ class GaussianProcess(nn.Module):
         """
         Xnew: n_newsamples * n_features
         Xtrain: n_samples * n_features
-        ytrain: n_samples * n_output
+        ytrain: n_samples / n_samples * n_output
         """
         device = Xnew.device
 
@@ -48,12 +51,15 @@ class GaussianProcess(nn.Module):
 
         kXnew = self.to_matrix(self.kernel(Xnew, Xtrain))
         ytrain = ytrain.flatten()
-        mean_ynew = self.mean(Xnew) + torch.matmul(kXnew, torch.cholesky_solve(ytrain[:, None], L))
+        logging.debug(self.mean)
+        mean_ynew = self.mean(Xnew) + torch.squeeze(torch.matmul(kXnew, torch.cholesky_solve(ytrain[:, None], L)), dim=-1)
+        logging.debug("mean={}".format(mean_ynew))
         # LL^T _x = kXnew^T
         _x = torch.cholesky_solve(kXnew.T, L)
         
         kXnewXnew = self.to_matrix(self.kernel(Xnew))
         std_ynew = torch.sqrt(torch.diag(kXnewXnew) - torch.einsum("ij,ji->i", kXnew, _x))
+        logging.debug("var={}".format(std_ynew))
         return [Normal(mu, sigma) for mu,sigma in zip(mean_ynew, std_ynew)]
 
         
