@@ -60,7 +60,6 @@ class Deriv1Matern52(BaseKernel):
         fr = torch.pow(self.c, 2) * (-5.0/3.0)*torch.exp(-sqrt_5*r)*(1.0+sqrt_5*r)
         dx1x2_div_l2 = DX1X2 / torch.pow(self.l, 2)
         return torch.einsum("ij,ija->iaj", fr, dx1x2_div_l2)
-        # TODO: reshape the 3-tensor into a matrix
         # DONE: Don't reshape the tensor, reshape it in later process
 
 
@@ -79,7 +78,6 @@ class Deriv2Matern52(BaseKernel):
         distance_div_l2 = torch.einsum("ija,ijb->iajb", DX1X2 / torch.pow(self.l, 2), DX1X2 / torch.pow(self.l, 2))
         k = torch.einsum("ij,iajb->iajb", fr, part1 - 5.0*distance_div_l2)
         return torch.pow(self.c, 2) * k
-        # TODO: reshape the 4-tensor into a matrix
         # DONE: Same as above
 
 
