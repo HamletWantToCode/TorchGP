@@ -9,8 +9,8 @@ from .utils import *
 class BaseKernel(nn.Module):
     def __init__(self, overall_scaling: torch.tensor, character_length: torch.tensor):
         """
-        overall_scaling: 1
-        character_length: n_features or 1
+        overall_scaling: size 1 tensor 
+        character_length: n_features
         """
         super().__init__()
         self._c = Parameter(torch.zeros_like(overall_scaling))
@@ -55,6 +55,10 @@ class Matern52(BaseKernel):
         super().__init__(overall_scaling, character_length)
 
     def forward(self, X1, X2: torch.tensor=None):
+        """
+        X1: n_samples * n_features
+        X2: n_samples * n_features
+        """
         X1_l, X2_l = self._streched(X1, X2)
         r = self._r(X1_l, X2_l)
         sqrt_5 = math.sqrt(5)

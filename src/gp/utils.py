@@ -2,6 +2,9 @@ import torch
 import logging
 
 def pairwise1(X1: torch.tensor):
+    """
+    X1: n_samples * n_features
+    """
     device = X1.device
     _X1 = X1[:, None]
     pw_diff = _X1 - X1

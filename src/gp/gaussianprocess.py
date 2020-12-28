@@ -24,8 +24,8 @@ class GaussianProcess(nn.Module):
 
     def forward(self, Xtrain: torch.tensor):
         """
-        Xtrain: n_samples * n_features
-        When output is a vector, it will be flattened into a long vector 
+        Inputs:
+        :Xtrain: n_samples * n_features
         """
         device = Xtrain.device
         
@@ -35,13 +35,18 @@ class GaussianProcess(nn.Module):
         
         mean = self.mean(Xtrain)
         marginal = MultivariateNormal(mean, scale_tril=L)
+        # NOTE: `y` provided to `marginal` need to be 1-dimension
         return marginal
 
     def predict(self, Xnew: torch.tensor, Xtrain: torch.tensor, ytrain: torch.tensor):
         """
-        Xnew: n_newsamples * n_features
-        Xtrain: n_samples * n_features
-        ytrain: n_samples / n_samples * n_output
+        Inputs:
+        :Xnew: n_newsamples * n_features
+        :Xtrain: n_samples * n_features
+        :ytrain: n_samples / n_samples * n_output
+
+        Returns:
+        A set of 1d normal distributions, their mean/var are scalar tensors
         """
         device = Xnew.device
 
