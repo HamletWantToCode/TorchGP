@@ -68,13 +68,14 @@ class Deriv2Matern52(BaseKernel):
         super().__init__(overall_scaling, character_length)
 
     def forward(self, X1, X2: torch.tensor=None):
+        device = X1.device
         DX1X2 = self._distance(X1, X2) 
         X1_l, X2_l = self._streched(X1, X2)
         r = self._r(X1_l, X2_l)
         sqrt_5 = math.sqrt(5)
 
         fr = (5.0/3.0)*torch.exp(-sqrt_5*r)  # n_sample * n_sample
-        part1 = torch.einsum("ij,ab->iajb", (1+sqrt_5*r), (1.0/torch.pow(self.l, 2))*torch.eye(len(self.l)))
+        part1 = torch.einsum("ij,ab->iajb", (1+sqrt_5*r), (1.0/torch.pow(self.l, 2))*torch.eye(len(self.l), device=device))
         distance_div_l2 = torch.einsum("ija,ijb->iajb", DX1X2 / torch.pow(self.l, 2), DX1X2 / torch.pow(self.l, 2))
         k = torch.einsum("ij,iajb->iajb", fr, part1 - 5.0*distance_div_l2)
         return torch.pow(self.c, 2) * k

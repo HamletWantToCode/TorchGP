@@ -3,7 +3,7 @@ from gp import GaussianProcess, ZeroScalarMean, ZeroVectorMean, Matern52, Deriv2
 import unittest
 import logging
 
-logging.basicConfig(level=logging.DEBUG)
+# logging.basicConfig(level=logging.DEBUG)
 
 torch.manual_seed(1234)
 gpu_device = torch.device("cuda:0")
@@ -15,11 +15,12 @@ def check_device(gaussprocess, X, Y, X1):
     # cpu
     with torch.no_grad():
         margin = gaussprocess(X)
-        loglik = margin.log_prob(Y)
+        loglik = margin.log_prob(Y.flatten())
+        logging.debug("loglik(cpu)={}".format(loglik))
         p_Y1 = gaussprocess.predict(X1, X, Y)
-        logging.debug("{}".format(p_Y1[0].mean))
         mean_Y1 = torch.tensor([p_Y1[i].mean for i in range(len(p_Y1))])
         mean_Y1 = mean_Y1.reshape((new_n_sample, output_d))
+        logging.debug("mean_Y1(cpu)={}".format(mean_Y1))
 
     # gpu
     X_gpu = X.to(gpu_device)
@@ -28,10 +29,12 @@ def check_device(gaussprocess, X, Y, X1):
     gaussprocess.to(gpu_device)
     with torch.no_grad():
         margin_gpu = gaussprocess(X_gpu)
-        loglik_gpu = margin_gpu.log_prob(y_gpu)
-        p_Y1_gpu = gaussprocess(X1_gpu, X_gpu, Y_gpu)
+        loglik_gpu = margin_gpu.log_prob(Y_gpu.flatten())
+        logging.debug("loglik(gpu)={}".format(loglik_gpu))
+        p_Y1_gpu = gaussprocess.predict(X1_gpu, X_gpu, Y_gpu)
         mean_Y1_gpu = torch.tensor([p_Y1[i].mean for i in range(len(p_Y1_gpu))], device=gpu_device)
         mean_Y1_gpu = mean_Y1_gpu.reshape((new_n_sample, output_d))
+        logging.debug("mean_Y1(gpu)={}".format(mean_Y1_gpu))
     loglik_gpu2cpu = loglik_gpu.cpu()
     mean_Y1_gpu2cpu = mean_Y1_gpu.cpu()
 
