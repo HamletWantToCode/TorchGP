@@ -8,4 +8,5 @@ __all__ = [
     "ZeroScalarMean",
     "ZeroVectorMean",
     "Matern52", 
-    "Deriv2Matern52"]
+    "Deriv2Matern52",
+    "RBF"]

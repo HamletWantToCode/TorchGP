@@ -13,8 +13,21 @@ class BaseKernel(nn.Module):
         character_length: n_features or 1
         """
         super().__init__()
-        self.c = Parameter(overall_scaling)
-        self.l = Parameter(character_length) 
+        self._c = Parameter(torch.zeros_like(overall_scaling))
+        self._l = Parameter(torch.zeros_like(character_length))
+        self.reset_parameters(overall_scaling, character_length) 
+
+    def reset_parameters(self, overall_scaling, character_length):
+        self._c.data.copy_(torch.log(overall_scaling))
+        self._l.data.copy_(torch.log(character_length))
+
+    @property
+    def c(self):
+        return torch.exp(self._c)
+
+    @property
+    def l(self):
+        return torch.exp(self._l)
 
     @staticmethod
     def _distance(X1: torch.tensor, X2: torch.tensor=None):
@@ -82,6 +95,14 @@ class Deriv2Matern52(BaseKernel):
         # DONE: Same as above
 
 
+class RBF(BaseKernel):
+    def __init__(self, overall_scaling: torch.tensor, character_length: torch.tensor):
+        super().__init__(overall_scaling, character_length)
+
+    def forward(self, X1, X2: torch.tensor=None):
+        X1_l, X2_l = self._streched(X1, X2)
+        r = self._r(X1_l, X2_l)
+        return torch.pow(self.c, 2) * torch.exp(-0.5*torch.pow(r, 2))
 
 
 

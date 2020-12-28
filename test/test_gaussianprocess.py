@@ -20,7 +20,7 @@ def basic_test(gaussprocess, X1, y1, X2):
     type_check = type_check and isinstance(p_y2[0], torch.distributions.Normal)
     logging.debug("basic test: predict typecheck={}".format(type_check))
 
-    len_check = (len(predict)==n2*out_d)
+    len_check = (len(p_y2)==n2*out_d)
     logging.debug("basic test: lencheck={}".format(len_check))
     return type_check and sample_shape_check and len_check
 

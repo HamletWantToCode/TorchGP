@@ -1,6 +1,6 @@
 import torch
 from torch.autograd.gradcheck import get_numerical_jacobian
-from gp import Matern52, Deriv2Matern52
+from gp import Matern52, Deriv2Matern52, RBF
 from gp.kernels import Deriv1Matern52
 import unittest
 import logging
@@ -76,6 +76,9 @@ class TestKernel(unittest.TestCase):
         matern = Matern52(C, l)
         K1 = matern(X1)
         self.assertTrue(test_basic_property(K1))
+        rbf = RBF(C, l)
+        K1_rbf = rbf(X1)
+        self.assertTrue(test_basic_property(K1_rbf))
 
         # since the return is a 4-tensor
         d2matern = Deriv2Matern52(C, l)
@@ -86,6 +89,9 @@ class TestKernel(unittest.TestCase):
         # check consistency
         K3 = matern(X1, X1)
         self.assertTrue(torch.allclose(K1, K3))
+        K3_rbf = rbf(X1, X1)
+        self.assertTrue(torch.allclose(K1_rbf, K3_rbf))
+
         K4 = d2matern(X1, X1)
         K4 = K4.reshape((30, 30))
         self.assertTrue(torch.allclose(K2, K4))
