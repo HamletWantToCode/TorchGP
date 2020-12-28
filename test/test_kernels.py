@@ -1,6 +1,7 @@
 import torch
 from torch.autograd.gradcheck import get_numerical_jacobian
-from gp import Matern52, Deriv1Matern52, Deriv2Matern52
+from gp import Matern52, Deriv2Matern52
+from gp.kernels import Deriv1Matern52
 import unittest
 import logging
 # logging.basicConfig(level=logging.DEBUG)

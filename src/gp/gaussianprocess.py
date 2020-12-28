@@ -11,6 +11,14 @@ class GaussianProcess(nn.Module):
         self.kernel = kernel
         self.alpha = regularizer
 
+    @staticmethod
+    def to_matrix(K):
+        if K.ndim == 2:
+            return K
+        elif K.ndim == 4:
+            n1, d1, n2, d2 = K.shape
+            return K.reshape((n1*d1, n2*d2))
+
     def forward(self, Xtrain: torch.tensor):
         """
         Xtrain: n_samples * n_features
@@ -18,10 +26,7 @@ class GaussianProcess(nn.Module):
         """
         device = Xtrain.device
         
-        K = self.kernel(Xtrain, Xtrain)
-        if K.ndim == 4:
-            n_samples, n_features = Xtrain.shape
-            K = K.reshape((n_samples*n_features, n_samples*n_features))
+        K = self.to_matrix(self.kernel(Xtrain))
         Kprime = K + self.alpha * torch.eye(K.shape[0], device=device)
         L = torch.cholesky(Kprime)
         
@@ -37,25 +42,17 @@ class GaussianProcess(nn.Module):
         """
         device = Xnew.device
 
-        K = self.kernel(Xtrain, Xtrain)
-        if K.ndim == 4:
-            n_samples, n_features = Xtrain.shape
-            K = K.reshape((n_samples*n_features, n_samples*n_features))
+        K = self.to_matrix(self.kernel(Xtrain))
         Kprime = K + self.alpha * torch.eye(K.shape[0], device=device)
         L = torch.cholesky(Kprime)
 
-        kXnew = self.kernel(Xnew, Xtrain)
-        if kXnew.ndim == 4:
-            n_newsamples, _ = Xnew.shape
-            kXnew = kXnew.reshape((n_newsamples*n_features, n_samples*n_features))
-            ytrain = ytrain.flatten()
+        kXnew = self.to_matrix(self.kernel(Xnew, Xtrain))
+        ytrain = ytrain.flatten()
         mean_ynew = self.mean(Xnew) + torch.matmul(kXnew, torch.cholesky_solve(ytrain[:, None], L))
         # LL^T _x = kXnew^T
-        _x = torch.cholesky_solve(kXnew, L)
+        _x = torch.cholesky_solve(kXnew.T, L)
         
-        kXnewXnew = self.kernel(Xnew, Xnew)
-        if kXnewXnew.ndim == 4:
-            kXnewXnew = kXnewXnew.reshape((n_newsamples*n_features, n_newsamples*n_features))
+        kXnewXnew = self.to_matrix(self.kernel(Xnew))
         std_ynew = torch.sqrt(torch.diag(kXnewXnew) - torch.einsum("ij,ji->i", kXnew, _x))
         return [Normal(mu, sigma) for mu,sigma in zip(mean_ynew, std_ynew)]
 
