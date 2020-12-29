@@ -2,6 +2,7 @@ from .kernels import *
 from .means import *
 from .utils import *
 from .gaussianprocess import GaussianProcess
+from .train import *
 
 __all__ = [
     "GaussianProcess",
@@ -9,4 +10,7 @@ __all__ = [
     "ZeroVectorMean",
     "Matern52", 
     "Deriv2Matern52",
-    "RBF"]
+    "RBF",
+    "train",
+    "evaluate"
+    ]
