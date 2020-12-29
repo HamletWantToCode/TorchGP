@@ -12,10 +12,9 @@ def default_callback(gaussprocess, writer, step):
 def train(
     train_data: tuple,
     gaussprocess,
-    opt,
+    optimizer,
     num_epoch,
     device,
-    *opt_args,
     workdir=None,
     callback=default_callback
     ):
@@ -29,30 +28,31 @@ def train(
     train_X, train_Y = train_X.to(device), train_Y.to(device)
     gaussprocess.to(device)
     state = {}
+
+    def closure():
+        optimizer.zero_grad()
+        marginal = gaussprocess(train_X)
+        negloglik = -1 * marginal.log_prob(train_Y.flatten())
+        negloglik.backward()
+        return negloglik
+
     with tqdm(total=num_epoch) as pbar:
         pbar.set_description("Train")
         logging.info("Training......")
         for epoch_ix in range(num_epoch):
-            opt.zero_grad()
-
-            marginal = gaussprocess(train_X)
-            negloglik = -1 * marginal.log_prob(train_Y.flatten())
-
-            state.update({"negloglik": "{:.10f}".format(negloglik)})
             if callback:
                 callback(gaussprocess, writer, epoch_ix)
+            
+            negloglik = optimizer.step(closure)
+
+            state.update({"negloglik": "{:.10f}".format(negloglik)})
             pbar.set_postfix(negloglik=state["negloglik"])
             pbar.update(1)
 
-            negloglik.backward()
-            if sum(torch.sum(torch.isnan(p.grad)) for p in gaussprocess.parameters()) == 0:
-                gnorm = 0.0
-                for p in gaussprocess.parameters():
-                    gnorm += torch.norm(p.grad)
-                state.update({"gnorm": "{:.10f}".format(gnorm)})
-                opt.step(*opt_args)
-            else:
-                logging.warn("Catch NaN value in gradient!")
+            gnorm = 0.0
+            for p in gaussprocess.parameters():
+                gnorm += torch.norm(p.grad)
+            state.update({"gnorm": "{:.10f}".format(gnorm)})
 
             writer.add_scalar("Train/negloglik", negloglik, epoch_ix)
             log_str = ["%s=%s" %(k, v) for k,v in state.items()]

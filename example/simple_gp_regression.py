@@ -24,7 +24,7 @@ C = torch.tensor([1.0])
 l = torch.rand(1)
 kernel = gp.Matern52(C, l)
 gaussprocess = gp.GaussianProcess(gp.ZeroScalarMean(), kernel, 2e-2)
-optimizer = torch.optim.Adam(gaussprocess.parameters(), lr=0.1)
+optimizer = torch.optim.LBFGS(gaussprocess.parameters(), lr=0.1)
 training_iter = 50
 
 gp.train((train_x, train_y), gaussprocess, optimizer, training_iter, device, workdir="data/%s" %(current_time))
