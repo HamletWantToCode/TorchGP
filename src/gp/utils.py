@@ -36,9 +36,9 @@ def pairwise2(X1: torch.tensor, X2: torch.tensor):
     pw_distance = torch.sqrt(dsquare)
     return pw_distance
 
-def get_mean_and_var(p_Y, output_shape: tuple):
-    mean_Y = torch.tensor([p_Y[i].mean for i in range(len(p_Y))])
+def get_mean_and_var(p_Y, output_shape: tuple, device):
+    mean_Y = torch.tensor([p_Y[i].mean for i in range(len(p_Y))], device=device)
     mean_Y = mean_Y.reshape(output_shape)
-    std_Y = torch.tensor([p_Y[i].stddev for i in range(len(p_Y))])
+    std_Y = torch.tensor([p_Y[i].stddev for i in range(len(p_Y))], device=device)
     std_Y = std_Y.reshape(output_shape)
     return mean_Y, std_Y

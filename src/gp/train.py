@@ -60,14 +60,18 @@ def train(
             logging.info(log_str)
 
 
-def evaluate(test_X, train_data: tuple, gaussprocess, device, output_shape: tuple):
-    test_X = test_X.to(device)
+def evaluate(valid_data: tuple, train_data: tuple, gaussprocess, measure, device, returnY=False):
+    valid_X, valid_Y = valid_data
     train_X, train_Y = train_data
+    valid_X, valid_Y = valid_X.to(device), valid_Y.to(device)
     train_X, train_Y = train_X.to(device), train_Y.to(device)
     gaussprocess.to(device)
     with torch.no_grad():
-        p_testY = gaussprocess.predict(test_X, train_X, train_Y)
-        mean_testY, std_testY = get_mean_and_var(p_testY, output_shape)   # Now, data is on CPU
-    return mean_testY, std_testY
+        p_testY = gaussprocess.predict(valid_X, train_X, train_Y)
+        mean_validY, std_validY = get_mean_and_var(p_testY, valid_Y.shape, device)   # Now, data is on CPU
+    if returnY:
+        return (mean_validY, std_validY), measure(mean_validY, valid_Y)
+    else:
+        return measure(mean_validY, valid_Y)
 
 
