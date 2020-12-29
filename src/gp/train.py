@@ -15,6 +15,7 @@ def train(
     opt,
     num_epoch,
     device,
+    *opt_args,
     workdir=None,
     callback=default_callback
     ):
@@ -49,7 +50,7 @@ def train(
                 for p in gaussprocess.parameters():
                     gnorm += torch.norm(p.grad)
                 state.update({"gnorm": "{:.10f}".format(gnorm)})
-                opt.step()
+                opt.step(*opt_args)
             else:
                 logging.warn("Catch NaN value in gradient!")
 
@@ -65,7 +66,7 @@ def evaluate(test_X, train_data: tuple, gaussprocess, device, output_shape: tupl
     train_X, train_Y = train_X.to(device), train_Y.to(device)
     gaussprocess.to(device)
     with torch.no_grad():
-        p_testY = gaussprocess.predict(test_X, *train_data)
+        p_testY = gaussprocess.predict(test_X, train_X, train_Y)
         mean_testY, std_testY = get_mean_and_var(p_testY, output_shape)   # Now, data is on CPU
     return mean_testY, std_testY
 
