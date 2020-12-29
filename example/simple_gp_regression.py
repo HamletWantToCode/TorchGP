@@ -25,15 +25,20 @@ l = torch.rand(1)
 kernel = gp.Matern52(C, l)
 gaussprocess = gp.GaussianProcess(gp.ZeroScalarMean(), kernel, 2e-2)
 optimizer = torch.optim.LBFGS(gaussprocess.parameters(), lr=0.1)
-training_iter = 50
+training_iter = 20
 
 gp.train((train_x, train_y), gaussprocess, optimizer, training_iter, device, workdir="data/%s" %(current_time))
-test_x = torch.linspace(0, 1, 51)[:, None]
-test_y_mean, test_y_var = gp.evaluate(test_x, (train_x, train_y), gaussprocess, device, (51,))
+test_x = torch.linspace(0, 1, 51)
+test_y = torch.sin(test_x * (2*math.pi))
+test_x = test_x[:, None]
+mse = torch.nn.MSELoss()
+(test_y_mean, test_y_var), _ = gp.evaluate((test_x, test_y), (train_x, train_y), gaussprocess, mse, device, returnY=True)
 
 train_x = train_x.cpu().flatten()
 train_y = train_y.cpu()
 test_x = test_x.cpu().flatten()
+test_y_mean = test_y_mean.cpu()
+test_y_var = test_y_var.cpu()
 
 train_data = torch.stack((train_x, train_y))
 test_data = torch.stack([test_x, test_y_mean, test_y_var])

@@ -69,9 +69,11 @@ def evaluate(valid_data: tuple, train_data: tuple, gaussprocess, measure, device
     with torch.no_grad():
         p_testY = gaussprocess.predict(valid_X, train_X, train_Y)
         mean_validY, std_validY = get_mean_and_var(p_testY, valid_Y.shape, device)   # Now, data is on CPU
+    valid_err = measure(mean_validY, valid_Y)
+    logging.info("Error on validation set = %.10f" %(valid_err))
     if returnY:
-        return (mean_validY, std_validY), measure(mean_validY, valid_Y)
+        return (mean_validY, std_validY), valid_err
     else:
-        return measure(mean_validY, valid_Y)
+        return valid_err
 
 
