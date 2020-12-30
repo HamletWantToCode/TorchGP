@@ -7,6 +7,11 @@ from .utils import *
 # TODO: Add SE kernel
 
 class BaseKernel(nn.Module):
+    def __init__(self):
+        super().__init__()
+
+
+class StationaryKernel(BaseKernel):
     def __init__(self, overall_scaling: torch.tensor, character_length: torch.tensor):
         """
         overall_scaling: size 1 tensor 
@@ -50,7 +55,7 @@ class BaseKernel(nn.Module):
             return X1/self.l, None
 
 
-class Matern52(BaseKernel):
+class Matern52(StationaryKernel):
     def __init__(self, overall_scaling: torch.tensor, character_length: torch.tensor):
         super().__init__(overall_scaling, character_length)
 
@@ -65,7 +70,7 @@ class Matern52(BaseKernel):
         return torch.pow(self.c, 2) * (1.0 + sqrt_5*r + (5.0/3.0)*torch.pow(r, 2)) * torch.exp(-sqrt_5*r)
 
 
-class Deriv1Matern52(BaseKernel):
+class Deriv1Matern52(StationaryKernel):
     def __init__(self, overall_scaling: torch.tensor, character_length: torch.tensor):
         super().__init__(overall_scaling, character_length)
     
@@ -80,7 +85,7 @@ class Deriv1Matern52(BaseKernel):
         # DONE: Don't reshape the tensor, reshape it in later process
 
 
-class Deriv2Matern52(BaseKernel):
+class Deriv2Matern52(StationaryKernel):
     def __init__(self, overall_scaling: torch.tensor, character_length: torch.tensor):
         super().__init__(overall_scaling, character_length)
 
@@ -99,7 +104,7 @@ class Deriv2Matern52(BaseKernel):
         # DONE: Same as above
 
 
-class RBF(BaseKernel):
+class RBF(StationaryKernel):
     def __init__(self, overall_scaling: torch.tensor, character_length: torch.tensor):
         super().__init__(overall_scaling, character_length)
 
