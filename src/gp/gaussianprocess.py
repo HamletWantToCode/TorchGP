@@ -56,8 +56,9 @@ class GaussianProcess(nn.Module):
 
         kXnew = self.to_matrix(self.kernel(Xnew, Xtrain))
         ytrain = ytrain.flatten()
-        logging.debug(self.mean)
-        mean_ynew = self.mean(Xnew) + torch.squeeze(torch.matmul(kXnew, torch.cholesky_solve(ytrain[:, None], L)), dim=-1)
+        ytrain_minus_mean = ytrain - self.mean(Xtrain)
+        # logging.debug(self.mean)
+        mean_ynew = self.mean(Xnew) + torch.squeeze(torch.matmul(kXnew, torch.cholesky_solve(ytrain_minus_mean[:, None], L)), dim=-1)
         logging.debug("mean={}".format(mean_ynew))
         # LL^T _x = kXnew^T
         _x = torch.cholesky_solve(kXnew.T, L)
