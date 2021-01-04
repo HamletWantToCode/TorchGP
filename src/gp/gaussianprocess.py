@@ -8,11 +8,16 @@ import logging
 # logging.basicConfig(level=logging.DEBUG)
 
 class GaussianProcess(nn.Module):
-    def __init__(self, mean: BaseMean, kernel: BaseKernel, regularizer: torch.tensor):
+    def __init__(self, 
+                mean: BaseMean, 
+                kernel: BaseKernel, 
+                regularizer: torch.tensor, 
+                transformer: torch.nn.Module=nn.Identity()):
         super().__init__()
         self.mean = mean
         self.kernel = kernel
         self.alpha = regularizer
+        self.transformer = transformer
 
     @staticmethod
     def to_matrix(K):
@@ -28,6 +33,7 @@ class GaussianProcess(nn.Module):
         :Xtrain: n_samples * n_features
         """
         device = Xtrain.device
+        Xtrain = self.transformer(Xtrain)
         
         K = self.to_matrix(self.kernel(Xtrain))
         Kprime = K + self.alpha * torch.eye(K.shape[0], device=device)
@@ -49,6 +55,7 @@ class GaussianProcess(nn.Module):
         A set of 1d normal distributions, their mean/var are scalar tensors
         """
         device = Xnew.device
+        Xnew, Xtrain = self.transformer(Xnew), self.transformer(Xtrain)
 
         K = self.to_matrix(self.kernel(Xtrain))
         Kprime = K + self.alpha * torch.eye(K.shape[0], device=device)
