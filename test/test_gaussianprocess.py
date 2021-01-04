@@ -1,5 +1,7 @@
 import torch
-from gp import GaussianProcess, ZeroScalarMean, ZeroVectorMean, Matern52, Deriv2Matern52
+from gp import GaussianProcess
+from gp import ZeroScalarMean, ZeroVectorMean
+from gp import Matern52, Deriv2Matern52, RBF, Deriv2RBF
 import unittest
 import logging
 
@@ -38,13 +40,16 @@ class TestGP(unittest.TestCase):
         X2 = torch.randn(2, 3)
         y1 = torch.randn(10, 1)
         y1prime = torch.randn(10, 3)
+
+        scalar_kernels = [Matern52(C, l), RBF(C, l)]
+        for k in scalar_kernels:
+            gp = GaussianProcess(ZeroScalarMean(), k, 0.1)
+            self.assertTrue(basic_test(gp, X1, y1, X2))
         
-        matern = Matern52(C, l)
-        gp1 = GaussianProcess(ZeroScalarMean(), matern, 0.1)
-        self.assertTrue(basic_test(gp1, X1, y1, X2))
-        d2matern = Deriv2Matern52(C, l)
-        gp2 = GaussianProcess(ZeroVectorMean(), d2matern, 0.1)
-        self.assertTrue(basic_test(gp2, X1, y1prime, X2))
+        vector_kernels = [Deriv2Matern52(C, l), Deriv2RBF(C, l)]
+        for k in vector_kernels:
+            gp = GaussianProcess(ZeroVectorMean(), k, 0.1)
+            self.assertTrue(basic_test(gp, X1, y1prime, X2))
         
     def test_statistics(self):
         """
@@ -53,18 +58,23 @@ class TestGP(unittest.TestCase):
         C = torch.tensor([3.0])
         l = torch.rand(3)
         X1 = torch.randn(10, 3)
-        matern = Matern52(C, l)
-        gp1 = GaussianProcess(ZeroScalarMean(), matern, 0.0)
-        margin = gp1(X1)
-        n_sample = 100000
-        samples = margin.sample([n_sample])
+        kernels = [Matern52(C, l), RBF(C, l)]
 
-        statistic_mean = torch.mean(samples, dim=0)
-        logging.debug("mean:{}".format(statistic_mean))
-        self.assertTrue(torch.allclose(statistic_mean, torch.zeros(10), atol=0.1))
-        statistic_cov = samples.T @ samples / (n_sample-1)
-        K = matern(X1)
-        logging.debug("Cov:{}".format(statistic_cov))
-        self.assertTrue(torch.allclose(K, statistic_cov, atol=0.1))
+        for k in kernels:
+            gp = GaussianProcess(ZeroScalarMean(), k, 0.0)
+            margin = gp(X1)
+            n_sample = 100000
+            samples = margin.sample([n_sample])
+
+            statistic_mean = torch.mean(samples, dim=0)
+            logging.debug("mean:{}".format(statistic_mean))
+            self.assertTrue(torch.allclose(statistic_mean, torch.zeros(10), atol=0.1))
+            statistic_cov = samples.T @ samples / (n_sample-1)
+            K = k(X1)
+            logging.debug("Cov:{}".format(statistic_cov))
+            self.assertTrue(torch.allclose(K, statistic_cov, atol=0.1))
+        
+
+        
 
 

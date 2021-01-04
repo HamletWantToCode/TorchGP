@@ -1,10 +1,10 @@
 import torch
 from torch.autograd.gradcheck import get_numerical_jacobian
-from gp import Matern52, Deriv2Matern52, RBF
-from gp.kernels import Deriv1Matern52
+from gp import Matern52, Deriv2Matern52, RBF, Deriv2RBF
+from gp.kernels import Deriv1Matern52, Deriv1RBF
 import unittest
 import logging
-# logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.WARN)
 
 torch.manual_seed(12345)
 
@@ -33,9 +33,11 @@ def test_gradient(kernel, d1kernel, X1, X2):
 
     # test gradient for two inputs
     fd_J1 = get_numerical_jacobian(lambda x: kernel(x, X2), X1, eps=1e-5)
+    logging.debug("fd_J1={}".format(fd_J1))
     with torch.no_grad():
         my_J1 = d1kernel(X1, X2)
         my_J1 = my_J1.reshape((n_features, n_samples))
+    logging.debug("my_J1={}".format(my_J1))
     isequal = torch.allclose(fd_J1, my_J1)
     return isequal
 
@@ -85,6 +87,10 @@ class TestKernel(unittest.TestCase):
         K2 = d2matern(X1)
         K2 = K2.reshape((30, 30))
         self.assertTrue(test_basic_property(K2))
+        d2rbf = Deriv2RBF(C, l)
+        K2_d2rbf = d2rbf(X1)
+        K2_d2rbf = K2_d2rbf.reshape((30, 30))
+        self.assertTrue(test_basic_property(K2_d2rbf))
 
         # check consistency
         K3 = matern(X1, X1)
@@ -95,6 +101,9 @@ class TestKernel(unittest.TestCase):
         K4 = d2matern(X1, X1)
         K4 = K4.reshape((30, 30))
         self.assertTrue(torch.allclose(K2, K4))
+        K4_d2rbf = d2rbf(X1, X1)
+        K4_d2rbf = K4_d2rbf.reshape((30, 30))
+        self.assertTrue(torch.allclose(K2_d2rbf, K4_d2rbf))
 
     def test_deriv_kernel(self):
         X1 = torch.randn(1, 5).double()
@@ -108,6 +117,12 @@ class TestKernel(unittest.TestCase):
         d2matern = Deriv2Matern52(C, l).double()
         self.assertTrue(test_gradient(matern, dmatern, X1, X2))
         self.assertTrue(test_hessian(dmatern, d2matern, X1, X3))
+
+        rbf = RBF(C, l).double()
+        drbf = Deriv1RBF(C, l).double()
+        d2rbf = Deriv2RBF(C, l).double()
+        self.assertTrue(test_gradient(rbf, drbf, X1, X2))
+        self.assertTrue(test_hessian(drbf, d2rbf, X1, X3))
 
 
 

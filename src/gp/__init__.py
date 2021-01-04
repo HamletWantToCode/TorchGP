@@ -11,6 +11,7 @@ __all__ = [
     "Matern52", 
     "Deriv2Matern52",
     "RBF",
+    "Deriv2RBF",
     "train",
     "evaluate"
     ]

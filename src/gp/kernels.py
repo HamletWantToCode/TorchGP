@@ -4,8 +4,6 @@ import torch.nn as nn
 from torch.nn.parameter import Parameter
 from .utils import *
 
-# TODO: Add SE kernel
-
 class BaseKernel(nn.Module):
     def __init__(self):
         super().__init__()
@@ -36,6 +34,11 @@ class StationaryKernel(BaseKernel):
 
     @staticmethod
     def _distance(X1: torch.tensor, X2: torch.tensor=None):
+        """
+        X1: n_samples1 * n_features
+        X2: n_samples2 * n_features
+        out: n_samples1 * n_samples2 * n_features
+        """
         if X2 is not None:
             return X1[:,None]-X2
         else:
@@ -43,6 +46,11 @@ class StationaryKernel(BaseKernel):
     
     @staticmethod
     def _r(X1: torch.tensor, X2: torch.tensor=None):
+        """
+        X1: n_samples1 * n_features
+        X2: n_samples2 * n_features
+        out: n_samples1 * n_samples2
+        """
         if X2 is not None:
             return pairwise2(X1, X2)
         else:
@@ -114,5 +122,33 @@ class RBF(StationaryKernel):
         return torch.pow(self.c, 2) * torch.exp(-0.5*torch.pow(r, 2))
 
 
+class Deriv1RBF(StationaryKernel):
+    def __init__(self, overall_scaling: torch.tensor, character_length: torch.tensor):
+        super().__init__(overall_scaling, character_length)
+
+    def forward(self, X1, X2: torch.tensor=None):
+        DX1X2 = self._distance(X1, X2)
+        X1_l, X2_l = self._streched(X1, X2)
+        r = self._r(X1_l, X2_l)
+        fr = torch.pow(self.c, 2) * torch.exp(-0.5*torch.pow(r, 2))
+        dx1x2_div_l2 = DX1X2 / torch.pow(self.l, 2)
+        return -torch.einsum("ij,ija->iaj", fr, dx1x2_div_l2)
+
+
+class Deriv2RBF(StationaryKernel):
+    def __init__(self, overall_scaling: torch.tensor, character_length: torch.tensor):
+        super().__init__(overall_scaling, character_length)
+    
+    def forward(self, X1, X2: torch.tensor=None):
+        device = X1.device
+        DX1X2 = self._distance(X1, X2)
+        X1_l, X2_l = self._streched(X1, X2)
+        r = self._r(X1_l, X2_l)
+
+        fr = torch.exp(-0.5*torch.pow(r, 2))
+        part1 = torch.einsum("a, ab->ab", 1.0/torch.pow(self.l, 2), torch.eye(len(self.l), device=device))
+        distance_div_l2 = torch.einsum("ija,ijb->iajb", DX1X2/torch.pow(self.l, 2), DX1X2/torch.pow(self.l, 2))
+        k = torch.einsum("ij,iajb->iajb", fr, part1[None, :, None, :] - distance_div_l2)
+        return torch.pow(self.c, 2) * k
 
 
