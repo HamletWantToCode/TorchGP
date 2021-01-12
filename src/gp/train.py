@@ -4,7 +4,7 @@ from tqdm.autonotebook import tqdm
 from .utils import get_mean_and_var
 from torch.utils.tensorboard import SummaryWriter
 
-def default_callback(gaussprocess, writer, step):
+def default_callback(writer, step, gaussprocess):
     for i in range(len(gaussprocess.kernel.l)):
         writer.add_scalar("Hyperparameter/LengthScale/l{:d}".format(i), gaussprocess.kernel.l[i], step)
     writer.add_scalar("Hyperparameter/lambda^2", torch.pow(gaussprocess.kernel.c, 2)[0], step)
@@ -17,6 +17,7 @@ def train(
     device,
     workdir=None,
     callback=default_callback
+    cb_kws: dict={},
     ):
 
     if workdir:
@@ -41,7 +42,7 @@ def train(
         logging.info("Training......")
         for epoch_ix in range(num_epoch):
             if callback:
-                callback(gaussprocess, writer, epoch_ix)
+                callback(writer, epoch_ix, gaussprocess, **cb_kws)
             
             negloglik = optimizer.step(closure)
 
