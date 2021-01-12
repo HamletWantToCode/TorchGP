@@ -16,7 +16,7 @@ def train(
     num_epoch,
     device,
     workdir=None,
-    callback=default_callback
+    callback=default_callback,
     cb_kws: dict={},
     ):
 
